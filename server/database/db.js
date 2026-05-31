@@ -140,6 +140,17 @@ function initDatabase() {
   try { db.exec('ALTER TABLE statements ADD COLUMN photo_url TEXT'); } catch {}
   try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1'); } catch {}
 
+  // Remove auto-generated comments from seeded demo users
+  try {
+    db.exec(`
+      UPDATE statements SET comment_count = MAX(0, comment_count - (
+        SELECT COUNT(*) FROM comments c JOIN users u ON c.user_id = u.id
+        WHERE c.statement_id = statements.id AND u.email LIKE '%@gen.demo' AND c.is_deleted = 0
+      ))
+    `);
+    db.exec(`UPDATE comments SET is_deleted = 1 WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@gen.demo')`);
+  } catch {}
+
   // Anonymize existing deleted accounts so email + username become reusable
   try {
     const deleted = db.prepare("SELECT id FROM users WHERE is_deleted = 1 AND email NOT LIKE 'deleted_%@deleted'").all();

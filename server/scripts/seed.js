@@ -430,41 +430,7 @@ async function main() {
     if (start % 2000 === 0) console.log(`  likes: ${start}/${stmtIds.length}`);
   }
 
-  // ─── Comments ────────────────────────────────────────────────────────────────
-  console.log('Adding comments...');
-  const insertComment = db.prepare(`
-    INSERT INTO comments (id, user_id, statement_id, content, vote_option, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const incComment = db.prepare(`UPDATE statements SET comment_count = comment_count + 1 WHERE id = ?`);
-  const getVote = db.prepare(`SELECT option_chosen FROM votes WHERE user_id = ? AND statement_id = ?`);
-
-  for (let start = 0; start < stmtIds.length; start += CHUNK) {
-    const chunk = stmtIds.slice(start, start + CHUNK);
-    db.transaction(() => {
-      chunk.forEach((sid, ci) => {
-        if (Math.random() < 0.2) return; // 20% of statements get no comments
-        const ui = stmtUserIdx[start + ci];
-        const tier = userTiers[ui];
-        const stmtDate = stmtDates[start + ci];
-        const maxComments = tier === 0 ? randInt(5, 20) : tier <= 2 ? randInt(2, 10) : randInt(0, 4);
-        const commenters = shuffle(userIds.filter((_, j) => j !== ui)).slice(0, maxComments);
-        commenters.forEach(vid => {
-          const vote = getVote.get(vid, sid);
-          if (!vote) return;
-          // Comment date must be AFTER statement date
-          const now = Date.now();
-          const stmtMs = stmtDate.getTime();
-          const rangeMs = Math.max(0, now - stmtMs);
-          const commentMs = stmtMs + Math.floor(Math.random() * rangeMs);
-          const commentDate = new Date(commentMs).toISOString().replace('T', ' ').slice(0, 19);
-          insertComment.run(uuidv4(), vid, sid, rand(COMMENTS), vote.option_chosen, commentDate);
-          incComment.run(sid);
-        });
-      });
-    })();
-    if (start % 2000 === 0) console.log(`  comments: ${start}/${stmtIds.length}`);
-  }
+  // Comments intentionally not generated — fake users only vote, they don't comment
 
   // ─── Recalculate view counts proportional to actual engagement ───────────────
   console.log('Recalculating view counts...');

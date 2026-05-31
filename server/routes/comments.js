@@ -137,9 +137,10 @@ router.delete('/:id', authenticate, (req, res) => {
   const isStatementOwner = stmt?.user_id === req.user.id;
   if (comment.user_id !== req.user.id && !req.user.is_admin && !isStatementOwner) return res.status(403).json({ error: 'Not authorized' });
 
+  const { replyCount } = db.prepare('SELECT COUNT(*) as replyCount FROM comments WHERE parent_comment_id = ? AND is_deleted = 0').get(req.params.id);
   db.prepare('UPDATE comments SET is_deleted = 1 WHERE id = ?').run(req.params.id);
   db.prepare('UPDATE comments SET is_deleted = 1 WHERE parent_comment_id = ?').run(req.params.id);
-  db.prepare('UPDATE statements SET comment_count = MAX(0, comment_count - 1) WHERE id = ?').run(comment.statement_id);
+  db.prepare('UPDATE statements SET comment_count = MAX(0, comment_count - ?) WHERE id = ?').run(1 + replyCount, comment.statement_id);
 
   res.json({ message: 'Comment deleted' });
 });

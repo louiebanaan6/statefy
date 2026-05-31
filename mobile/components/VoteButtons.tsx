@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -35,7 +35,7 @@ export default function VoteButtons({ statement, onVoted, compact = false }: Pro
       setLocalVote(option);
       setLocalResults(res.data.results);
       onVoted?.(option, res.data.results);
-    } catch (err: any) { alert(err.response?.data?.error || "Failed to vote"); }
+    } catch (err: any) { Alert.alert("Error", err.response?.data?.error || "Failed to vote"); }
     finally { setLoading(false); }
   };
 
