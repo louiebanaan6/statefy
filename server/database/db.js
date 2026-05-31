@@ -139,6 +139,15 @@ function initDatabase() {
   // Migrations for existing databases
   try { db.exec('ALTER TABLE statements ADD COLUMN photo_url TEXT'); } catch {}
   try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1'); } catch {}
+
+  // Anonymize existing deleted accounts so email + username become reusable
+  try {
+    const deleted = db.prepare("SELECT id FROM users WHERE is_deleted = 1 AND email NOT LIKE 'deleted_%@deleted'").all();
+    const anon = db.prepare("UPDATE users SET email = ?, username = ? WHERE id = ?");
+    for (const u of deleted) {
+      anon.run(`deleted_${u.id}@deleted`, `deleted_${u.id.slice(0, 12)}`, u.id);
+    }
+  } catch {}
   try { db.exec('ALTER TABLE statements ADD COLUMN audio_url TEXT'); } catch {}
   try { db.exec('ALTER TABLE statements ADD COLUMN audio_title TEXT'); } catch {}
   try { db.exec(`CREATE TABLE IF NOT EXISTS seen_statements (
