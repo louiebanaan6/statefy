@@ -22,6 +22,8 @@ app.use('/api/search', require('./routes/search'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/spotify', require('./routes/spotify'));
 
+app.get('/health', (req, res) => res.json({ ok: true }));
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
