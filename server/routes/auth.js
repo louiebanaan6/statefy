@@ -75,7 +75,7 @@ router.post('/register', async (req, res) => {
     .run(uuidv4(), email.toLowerCase(), code, 'verify_email', expiresAt);
 
   console.log(`[VERIFY CODE] ${email}: ${code}`);
-  try { await sendVerificationCode(email.toLowerCase(), code); } catch (e) { console.error('[EMAIL ERROR]', e.message); }
+  sendVerificationCode(email.toLowerCase(), code).catch(e => console.error('[EMAIL ERROR]', e.message));
 
   res.status(201).json({ requiresVerification: true, email: email.toLowerCase() });
 });
@@ -123,10 +123,8 @@ router.post('/resend-code', async (req, res) => {
     .run(uuidv4(), email.toLowerCase(), code, type, expiresAt);
 
   console.log(`[${type.toUpperCase()} CODE] ${email}: ${code}`);
-  try {
-    if (type === 'verify_email') await sendVerificationCode(email.toLowerCase(), code);
-    else await sendPasswordResetCode(email.toLowerCase(), code);
-  } catch (e) { console.error('[EMAIL ERROR]', e.message); }
+  const sendFn = type === 'verify_email' ? sendVerificationCode : sendPasswordResetCode;
+  sendFn(email.toLowerCase(), code).catch(e => console.error('[EMAIL ERROR]', e.message));
 
   res.json({ ok: true });
 });
@@ -149,7 +147,7 @@ router.post('/forgot-password', async (req, res) => {
     .run(uuidv4(), email.toLowerCase(), code, 'reset_password', expiresAt);
 
   console.log(`[RESET CODE] ${email}: ${code}`);
-  try { await sendPasswordResetCode(email.toLowerCase(), code); } catch (e) { console.error('[EMAIL ERROR]', e.message); }
+  sendPasswordResetCode(email.toLowerCase(), code).catch(e => console.error('[EMAIL ERROR]', e.message));
 
   res.json({ ok: true });
 });
