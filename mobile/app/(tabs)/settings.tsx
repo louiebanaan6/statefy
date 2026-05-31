@@ -129,7 +129,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Admin panel button — only for admins */}
-      {user?.is_admin && (
+      {!!user?.is_admin && (
         <TouchableOpacity
           onPress={() => router.push("/admin" as any)}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0f4ff", borderRadius: 999, paddingVertical: 14, marginBottom: 12, borderWidth: 1.5, borderColor: colors.primary }}

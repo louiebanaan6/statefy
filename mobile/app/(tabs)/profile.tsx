@@ -67,7 +67,7 @@ export default function ProfileTab() {
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
           <View style={{ position: "relative" }}>
             <UserAvatar user={profile} size="xl" />
-            {profile.is_admin && (
+            {!!profile.is_admin && (
               <TouchableOpacity onPress={() => setShowAdminPopup(true)}
                 style={{ position: "absolute", top: -4, right: -4, backgroundColor: colors.primary, borderRadius: 999, padding: 4, borderWidth: 2, borderColor: "#fff" }}>
                 <Shield size={10} color="#fff" />
@@ -108,7 +108,7 @@ export default function ProfileTab() {
           </TouchableOpacity>
 
           {/* Admin Panel — only for admin users */}
-          {me.is_admin && (
+          {!!me.is_admin && (
             <TouchableOpacity
               onPress={() => router.push("/admin" as any)}
               style={[s.btn, { flexDirection: "row", alignItems: "center", gap: 6, borderColor: colors.primary, paddingHorizontal: 14 }]}>

@@ -83,7 +83,7 @@ export default function CommentItem({ comment, statementOptions, statementOwnerI
             </TouchableOpacity>
             {!!comment.is_verified && <VerifiedBadge />}
             <Text style={s.username}>@{comment.username}</Text>
-            {comment.is_creator && (
+            {!!comment.is_creator && (
               <View style={{ backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}>
                 <Text style={{ color: colors.white, fontSize: 10, fontWeight: "700" }}>Creator</Text>
               </View>
