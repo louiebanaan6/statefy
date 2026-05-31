@@ -486,4 +486,8 @@ async function main() {
   console.log('Password for all demo accounts: 8fq51fsq81q6sfqs518fzq18b816sqnh7d5sfq86s');
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+module.exports = main;
