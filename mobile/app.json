@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Statefy",
+    "slug": "statefy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "statefy",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "icon": "./assets/logo.png",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.statefy.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Statefy needs access to your photos to update your profile picture.",
+        "NSCameraUsageDescription": "Statefy needs camera access to take a profile picture."
+      }
+    },
+    "android": {
+      "package": "com.statefy.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-asset",
+      "expo-image-picker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,14 @@
+const { getDb, initDatabase } = require('../database/db');
+initDatabase();
+const db = getDb();
+db.prepare('DELETE FROM seen_statements').run();
+db.prepare('DELETE FROM comment_likes').run();
+db.prepare('DELETE FROM comments').run();
+db.prepare('DELETE FROM notifications').run();
+db.prepare('DELETE FROM likes').run();
+db.prepare('DELETE FROM votes').run();
+db.prepare('DELETE FROM follows').run();
+db.prepare('DELETE FROM statements').run();
+db.prepare("DELETE FROM users WHERE email NOT LIKE '%gmail%' AND email NOT LIKE '%louie%'").run();
+db.prepare('UPDATE users SET follower_count = 0, following_count = 0').run();
+console.log('Cleared!');
