@@ -241,13 +241,16 @@ async function main() {
   console.log('Fetching Deezer tracks...');
   let tracks = [];
   try {
-    const r = await fetch('https://api.deezer.com/chart/0/tracks?limit=50');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const r = await fetch('https://api.deezer.com/chart/0/tracks?limit=50', { signal: controller.signal });
+    clearTimeout(timeout);
     const d = await r.json();
     tracks = (d.data || []).filter(t => t.preview).map(t => ({
       url: t.preview, title: `${t.title} — ${t.artist.name}`
     }));
     console.log(`Got ${tracks.length} tracks`);
-  } catch { console.log('Deezer unavailable'); }
+  } catch { console.log('Deezer unavailable, skipping music'); }
 
   const pw = bcrypt.hashSync('8fq51fsq81q6sfqs518fzq18b816sqnh7d5sfq86s', 10);
   const usedNames = new Set();
