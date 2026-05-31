@@ -20,7 +20,8 @@ const { getDb } = require('./database/db');
     const { count } = db.prepare("SELECT COUNT(*) as count FROM users WHERE email LIKE '%@gen.demo'").get();
     if (count === 0) {
       console.log('No demo users found — running seed...');
-      await require('./scripts/seed.js');
+      const seed = require('./scripts/seed.js');
+      await seed();
     }
   } catch (e) { console.error('Auto-seed error:', e.message); }
 })();
