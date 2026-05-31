@@ -1,25 +1,24 @@
-const nodemailer = require('nodemailer');
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  requireTLS: true,
-  connectionTimeout: 8000,
-  socketTimeout: 8000,
-  auth: {
-    user: process.env.SMTP_USER || 'resend',
-    pass: process.env.SMTP_PASS || '',
-  },
-});
-
 async function sendEmail({ to, subject, html }) {
-  if (!process.env.SMTP_PASS) {
-    console.log(`[EMAIL - no SMTP config] To: ${to} | Subject: ${subject}`);
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log(`[EMAIL - no config] To: ${to} | Subject: ${subject}`);
     return;
   }
+
   const from = process.env.FROM_EMAIL || 'Statefy <noreply@statefy.eu>';
-  await transporter.sendMail({ from, to, subject, html });
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to: [to], subject, html }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend error ${res.status}: ${body}`);
+  }
 }
 
 async function sendVerificationCode(email, code) {

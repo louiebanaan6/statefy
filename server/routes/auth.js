@@ -152,6 +152,22 @@ router.post('/forgot-password', async (req, res) => {
   res.json({ ok: true });
 });
 
+router.post('/check-reset-code', (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
+
+  const db = getDb();
+  const record = db.prepare(
+    'SELECT * FROM email_codes WHERE email = ? AND type = ? AND used = 0 ORDER BY created_at DESC LIMIT 1'
+  ).get(email.toLowerCase(), 'reset_password');
+
+  if (!record) return res.status(400).json({ error: 'No reset code found. Please request a new one.' });
+  if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
+  if (record.code !== code.trim()) return res.status(400).json({ error: 'Incorrect code. Please try again.' });
+
+  res.json({ ok: true });
+});
+
 router.post('/reset-password', (req, res) => {
   const { email, code, new_password } = req.body;
   if (!email || !code || !new_password) return res.status(400).json({ error: 'All fields are required' });

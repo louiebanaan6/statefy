@@ -60,9 +60,15 @@ export default function ForgotPasswordScreen() {
     } catch { } finally { setLoading(false); }
   };
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     if (code.length !== 6) { Alert.alert("Error", "Enter the 6-digit code"); return; }
-    setStep("password");
+    setLoading(true);
+    try {
+      await api.post("/auth/check-reset-code", { email: email.trim().toLowerCase(), code });
+      setStep("password");
+    } catch (err: any) {
+      Alert.alert("Error", err.response?.data?.error || "Incorrect code");
+    } finally { setLoading(false); }
   };
 
   const handleResetPassword = async () => {
@@ -139,8 +145,8 @@ export default function ForgotPasswordScreen() {
               autoFocus
             />
           </View>
-          <TouchableOpacity onPress={handleVerifyCode} disabled={code.length !== 6} style={[s.btn, { opacity: code.length !== 6 ? 0.6 : 1 }]} activeOpacity={0.85}>
-            <Text style={s.btnText}>Continue</Text>
+          <TouchableOpacity onPress={handleVerifyCode} disabled={loading || code.length !== 6} style={[s.btn, { opacity: (loading || code.length !== 6) ? 0.6 : 1 }]} activeOpacity={0.85}>
+            <Text style={s.btnText}>{loading ? "Checking..." : "Continue"}</Text>
           </TouchableOpacity>
           <View style={{ alignItems: "center", marginTop: 16 }}>
             <TouchableOpacity onPress={handleResend} disabled={loading || cooldown > 0}>
