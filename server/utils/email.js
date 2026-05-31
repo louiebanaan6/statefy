@@ -2,10 +2,11 @@ const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: true,
-  connectionTimeout: 5000,
-  socketTimeout: 5000,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false,
+  requireTLS: true,
+  connectionTimeout: 8000,
+  socketTimeout: 8000,
   auth: {
     user: process.env.SMTP_USER || 'resend',
     pass: process.env.SMTP_PASS || '',
