@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Statefy Admin</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: { primary: '#E8002D', 'near-black': '#111827', secondary: '#6b7280', surface: '#f9fafb' }
+    }
+  }
+}
+</script>
+<style>
+  body { background: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const API = 'https://statefy-production.up.railway.app/api';
+
+// ── API helper ────────────────────────────────────────────────────────────────
+function req(method, path, body) {
+  const token = localStorage.getItem('statefy_token');
+  return fetch(API + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    return data;
+  });
+}
+
+const get  = (p)    => req('GET', p);
+const post = (p, b) => req('POST', p, b);
+const put  = (p, b) => req('PUT', p, b);
+const del  = (p)    => req('DELETE', p);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(str) {
+  const s = Math.floor((Date.now() - new Date(str)) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function fmt(n) {
+  if (n == null) return '0';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function Avatar({ user, size = 40 }) {
+  const letter = (user?.display_name || user?.username || '?')[0].toUpperCase();
+  if (user?.avatar_url) return <img src={user.avatar_url} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
+  return <div style={{ width: size, height: size, borderRadius: '50%', background: '#E8002D', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontWeight: 700, fontSize: size * 0.4 }}>{letter}</div>;
+}
+
+function Spinner() {
+  return <div style={{ width: 24, height: 24, border: '3px solid #E8002D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />;
+}
+
+function Badge({ children, color = 'gray' }) {
+  const colors = { red: '#fef2f2|#b91c1c', blue: '#eff6ff|#1d4ed8', green: '#f0fdf4|#15803d', gray: '#f3f4f6|#6b7280' };
+  const [bg, fg] = (colors[color] || colors.gray).split('|');
+  return <span style={{ background: bg, color: fg, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>{children}</span>;
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+function Login({ onLogin }) {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const data = await post('/auth/login', { email, password });
+      if (!data.user?.is_admin) { setError('This account is not an admin.'); return; }
+      localStorage.setItem('statefy_token', data.token);
+      onLogin(data.user);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div className="card" style={{ width: '100%', maxWidth: 400, padding: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ width: 56, height: 56, background: '#E8002D', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827' }}>Statefy Admin</h1>
+          <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Sign in with your admin account</p>
+        </div>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" required
+            style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, outline: 'none' }} />
+          <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Password" required
+            style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '11px 14px', fontSize: 14, outline: 'none' }} />
+          {error && <p style={{ color: '#b91c1c', fontSize: 13, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>{error}</p>}
+          <button type="submit" disabled={loading}
+            style={{ background: '#E8002D', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Manage Modal ──────────────────────────────────────────────────────────────
+function ManageModal({ target, onClose, onCountsSaved }) {
+  const [tab, setTab] = React.useState('followers');
+  const [data, setData] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [followerVal, setFollowerVal] = React.useState(String(target.follower_count || 0));
+  const [followingVal, setFollowingVal] = React.useState(String(target.following_count || 0));
+  const [savingCounts, setSavingCounts] = React.useState(false);
+  const [addQuery, setAddQuery] = React.useState('');
+  const [addResults, setAddResults] = React.useState([]);
+  const [addLikeQuery, setAddLikeQuery] = React.useState('');
+  const [addLikeResults, setAddLikeResults] = React.useState([]);
+
+  React.useEffect(() => { loadData(tab); }, [tab]);
+
+  const loadData = async (t) => {
+    setLoading(true); setData([]);
+    try { const r = await get(`/admin/users/${target.id}/${t}`); setData(r[t] || r.statements || []); }
+    catch {} finally { setLoading(false); }
+  };
+
+  const saveCounts = async () => {
+    setSavingCounts(true);
+    try {
+      const [fRes, fwRes] = await Promise.all([
+        put(`/admin/users/${target.id}/set-followers`, { count: parseInt(followerVal) || 0 }),
+        put(`/admin/users/${target.id}/set-following`, { count: parseInt(followingVal) || 0 }),
+      ]);
+      onCountsSaved(target.id, fRes.follower_count, fwRes.following_count);
+      alert(`Saved — Followers: ${fRes.follower_count} · Following: ${fwRes.following_count}`);
+    } catch (e) { alert(e.message); }
+    finally { setSavingCounts(false); }
+  };
+
+  const searchUsers = async (q) => {
+    if (!q.trim()) { setAddResults([]); return; }
+    try { const r = await get(`/admin/users?q=${encodeURIComponent(q)}`); setAddResults(r.users.filter(u => u.id !== target.id)); }
+    catch {}
+  };
+
+  const searchStmts = async (q) => {
+    if (!q.trim()) { setAddLikeResults([]); return; }
+    try { const r = await get(`/admin/statements?q=${encodeURIComponent(q)}`); setAddLikeResults(r.statements); }
+    catch {}
+  };
+
+  const addFollow = async (otherId) => {
+    try {
+      if (tab === 'followers') await post(`/admin/users/${otherId}/follow/${target.id}`);
+      else await post(`/admin/users/${target.id}/follow/${otherId}`);
+      setAddQuery(''); setAddResults([]); loadData(tab);
+    } catch (e) { alert(e.message); }
+  };
+
+  const removeFollow = async (otherId) => {
+    try {
+      if (tab === 'followers') await del(`/admin/users/${otherId}/follow/${target.id}`);
+      else await del(`/admin/users/${target.id}/follow/${otherId}`);
+      setData(prev => prev.filter(u => u.id !== otherId));
+    } catch (e) { alert(e.message); }
+  };
+
+  const giveLike = async (stmtId) => {
+    try { await post(`/admin/users/${target.id}/likes/${stmtId}`); setAddLikeQuery(''); setAddLikeResults([]); loadData('likes'); }
+    catch (e) { alert(e.message); }
+  };
+
+  const removeLike = async (stmtId) => {
+    try { await del(`/admin/users/${target.id}/likes/${stmtId}`); setData(prev => prev.filter(s => s.id !== stmtId)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const inp = { border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' };
+  const tabs = ['followers', 'following', 'likes'];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div className="card" style={{ width: '100%', maxWidth: 520, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Avatar user={target} size={36} />
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{target.display_name}</p>
+              <p style={{ fontSize: 12, color: '#6b7280' }}>@{target.username}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+        </div>
+
+        {/* Count row */}
+        <div style={{ display: 'flex', gap: 10, padding: '12px 20px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Followers</p>
+            <input type="number" value={followerVal} onChange={e => setFollowerVal(e.target.value)} style={{ ...inp, textAlign: 'center', fontWeight: 700, fontSize: 16 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Following</p>
+            <input type="number" value={followingVal} onChange={e => setFollowingVal(e.target.value)} style={{ ...inp, textAlign: 'center', fontWeight: 700, fontSize: 16 }} />
+          </div>
+          <button onClick={saveCounts} disabled={savingCounts}
+            style={{ background: '#E8002D', color: 'white', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: savingCounts ? 0.6 : 1 }}>
+            {savingCounts ? 'Saving…' : 'Save counts'}
+          </button>
+        </div>
+
+        {/* Sub-tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: tab === t ? '#E8002D' : '#6b7280', borderBottom: tab === t ? '2px solid #E8002D' : '2px solid transparent', textTransform: 'capitalize' }}>{t}</button>
+          ))}
+        </div>
+
+        {/* Add input */}
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', position: 'relative' }}>
+          {tab !== 'likes' ? (
+            <>
+              <input value={addQuery} onChange={e => { setAddQuery(e.target.value); searchUsers(e.target.value); }}
+                placeholder={tab === 'followers' ? 'Add follower…' : 'Add following…'} style={inp} />
+              {addResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 16, right: 16, background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 160, overflowY: 'auto' }}>
+                  {addResults.map(u => (
+                    <button key={u.id} onClick={() => addFollow(u.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                      <Avatar user={u} size={28} />
+                      <span style={{ fontSize: 13, color: '#111827' }}>{u.display_name}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>@{u.username}</span>
+                      <span style={{ marginLeft: 'auto', color: '#E8002D', fontSize: 12, fontWeight: 700 }}>+ Add</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <input value={addLikeQuery} onChange={e => { setAddLikeQuery(e.target.value); searchStmts(e.target.value); }}
+                placeholder="Find statement to like…" style={inp} />
+              {addLikeResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 16, right: 16, background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 160, overflowY: 'auto' }}>
+                  {addLikeResults.map(s => (
+                    <button key={s.id} onClick={() => giveLike(s.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontSize: 13, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.content}</span>
+                      <span style={{ color: '#E8002D', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>+ Like</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+          {loading ? <div style={{ padding: 24 }}><Spinner /></div> :
+            data.length === 0 ? <p style={{ textAlign: 'center', color: '#6b7280', fontSize: 13, padding: 24 }}>None yet</p> :
+            data.map(item => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f9fafb' }}>
+                {tab !== 'likes' ? (
+                  <>
+                    <Avatar user={item} size={28} />
+                    <span style={{ fontSize: 13, color: '#111827', fontWeight: 500 }}>{item.display_name}</span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>@{item.username}</span>
+                    <button onClick={() => removeFollow(item.id)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.content}</span>
+                    <button onClick={() => removeLike(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Remove</button>
+                  </>
+                )}
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Admin App ────────────────────────────────────────────────────────────
+function Admin() {
+  const [user, setUser] = React.useState(null);
+  const [tab, setTab] = React.useState('users');
+  const [stats, setStats] = React.useState(null);
+  const [users, setUsers] = React.useState([]);
+  const [statements, setStatements] = React.useState([]);
+  const [reports, setReports] = React.useState([]);
+  const [userQ, setUserQ] = React.useState('');
+  const [stmtQ, setStmtQ] = React.useState('');
+  const [userLoading, setUserLoading] = React.useState(false);
+  const [stmtLoading, setStmtLoading] = React.useState(false);
+  const [reportLoading, setReportLoading] = React.useState(false);
+  const [manageTarget, setManageTarget] = React.useState(null);
+
+  // Check existing session
+  React.useEffect(() => {
+    const token = localStorage.getItem('statefy_token');
+    if (token) get('/auth/me').then(r => { if (r.user?.is_admin) setUser(r.user); else localStorage.removeItem('statefy_token'); }).catch(() => localStorage.removeItem('statefy_token'));
+  }, []);
+
+  React.useEffect(() => {
+    if (!user) return;
+    get('/admin/stats').then(r => setStats(r)).catch(() => {});
+    fetchUsers();
+  }, [user]);
+
+  React.useEffect(() => {
+    if (!user) return;
+    if (tab === 'statements') fetchStatements();
+    else if (tab === 'reports') fetchReports();
+  }, [tab]);
+
+  const fetchUsers = async (q = '') => {
+    setUserLoading(true);
+    try { const r = await get(`/admin/users?q=${encodeURIComponent(q)}`); setUsers(r.users); }
+    catch {} finally { setUserLoading(false); }
+  };
+
+  const fetchStatements = async (q = '') => {
+    setStmtLoading(true);
+    try { const r = await get(`/admin/statements?q=${encodeURIComponent(q)}`); setStatements(r.statements); }
+    catch {} finally { setStmtLoading(false); }
+  };
+
+  const fetchReports = async () => {
+    setReportLoading(true);
+    try { const r = await get('/admin/reports'); setReports(r.reports); }
+    catch {} finally { setReportLoading(false); }
+  };
+
+  const handleBan = async (u) => {
+    try { const r = await put(`/admin/users/${u.id}/ban`); setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_banned: r.is_banned ? 1 : 0 } : x)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleVerify = async (u) => {
+    try { const r = await put(`/admin/users/${u.id}/verify`); setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_verified: r.is_verified ? 1 : 0 } : x)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleMakeAdmin = async (u) => {
+    if (!confirm(`Give admin rights to ${u.display_name}?`)) return;
+    try { await put(`/admin/users/${u.id}/make-admin`); setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_admin: 1 } : x)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleDeleteUser = async (u) => {
+    if (!confirm(`Delete account of ${u.display_name}? Cannot be undone.`)) return;
+    try { await del(`/admin/users/${u.id}`); setUsers(prev => prev.filter(x => x.id !== u.id)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleDeleteStatement = async (s) => {
+    if (!confirm('Delete this statement?')) return;
+    try { await del(`/admin/statements/${s.id}`); setStatements(prev => prev.filter(x => x.id !== s.id)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleSetLikes = async (s, val) => {
+    try { await put(`/admin/statements/${s.id}/set-likes`, { count: val }); setStatements(prev => prev.map(x => x.id === s.id ? { ...x, like_count: val } : x)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleDismissReport = async (r) => {
+    try { await del(`/admin/reports/${r.id}`); setReports(prev => prev.filter(x => x.id !== r.id)); }
+    catch (e) { alert(e.message); }
+  };
+
+  const handleDeleteReportContent = async (r) => {
+    if (!confirm('Delete the reported content? Cannot be undone.')) return;
+    try {
+      if (r.target_type === 'statement') await del(`/statements/${r.target_id}`);
+      await del(`/admin/reports/${r.id}`);
+      setReports(prev => prev.filter(x => x.id !== r.id));
+    } catch (e) { alert(e.message); }
+  };
+
+  const logout = () => { localStorage.removeItem('statefy_token'); setUser(null); };
+
+  if (!user) return <Login onLogin={setUser} />;
+
+  const btn = (color, text, onClick) => (
+    <button onClick={onClick} style={{ border: `1px solid ${color}`, color, background: 'none', borderRadius: 7, padding: '5px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{text}</button>
+  );
+
+  const TABS = [
+    { key: 'users', label: 'Users' },
+    { key: 'statements', label: 'Statements' },
+    { key: 'reports', label: 'Reports', badge: reports.length },
+  ];
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      {/* Header */}
+      <div style={{ background: 'white', borderBottom: '1px solid #f0f0f0', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, background: '#E8002D', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <span style={{ fontWeight: 800, fontSize: 18, color: '#111827' }}>Statefy Admin</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, color: '#6b7280' }}>{user.display_name}</span>
+          <button onClick={logout} style={{ background: '#fef2f2', color: '#b91c1c', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Logout</button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+
+        {/* Stats */}
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+            {[
+              { label: 'Users', value: fmt(stats.total_users), color: '#E8002D' },
+              { label: 'Statements', value: fmt(stats.total_statements), color: '#111827' },
+              { label: 'Total Votes', value: fmt(stats.total_votes), color: '#1d4ed8' },
+              { label: 'Votes Today', value: fmt(stats.votes_today), color: '#15803d' },
+            ].map(s => (
+              <div key={s.label} className="card" style={{ padding: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</p>
+                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="card" style={{ display: 'flex', marginBottom: 16, overflow: 'hidden' }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, padding: '13px 0', fontSize: 14, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: tab === t.key ? '#E8002D' : '#6b7280', borderBottom: tab === t.key ? '2px solid #E8002D' : '2px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              {t.label}
+              {t.badge > 0 && <span style={{ background: '#ef4444', color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 5px' }}>{t.badge > 9 ? '9+' : t.badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* ── USERS ── */}
+        {tab === 'users' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={userQ} onChange={e => setUserQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchUsers(userQ)}
+                placeholder="Search by name, username or email…"
+                style={{ flex: 1, border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none' }} />
+              <button onClick={() => fetchUsers(userQ)} style={{ background: '#E8002D', color: 'white', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>Search</button>
+            </div>
+            {userLoading ? <div style={{ padding: 32 }}><Spinner /></div> : users.map(u => (
+              <div key={u.id} className="card" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <Avatar user={u} size={40} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{u.display_name}</span>
+                      {!!u.is_verified && <Badge color="blue">✓ Verified</Badge>}
+                      {!!u.is_admin && <Badge color="red">Admin</Badge>}
+                      {!!u.is_banned && <Badge color="gray">Banned</Badge>}
+                    </div>
+                    <p style={{ fontSize: 12, color: '#6b7280' }}>@{u.username} · {u.email}</p>
+                    <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{fmt(u.follower_count)} followers · Joined {timeAgo(u.created_at)}</p>
+                  </div>
+                </div>
+                {!u.is_deleted && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {btn(u.is_banned ? '#15803d' : '#b91c1c', u.is_banned ? 'Unban' : 'Ban', () => handleBan(u))}
+                    {btn('#E8002D', u.is_verified ? 'Unverify' : 'Verify', () => handleVerify(u))}
+                    {btn('#7c3aed', 'Manage', () => setManageTarget(u))}
+                    {!u.is_admin && btn('#1d4ed8', 'Make Admin', () => handleMakeAdmin(u))}
+                    {!u.is_admin && btn('#6b7280', 'Delete', () => handleDeleteUser(u))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── STATEMENTS ── */}
+        {tab === 'statements' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={stmtQ} onChange={e => setStmtQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchStatements(stmtQ)}
+                placeholder="Search statements…"
+                style={{ flex: 1, border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 14px', fontSize: 14, outline: 'none' }} />
+              <button onClick={() => fetchStatements(stmtQ)} style={{ background: '#E8002D', color: 'white', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}>Search</button>
+            </div>
+            {stmtLoading ? <div style={{ padding: 32 }}><Spinner /></div> : statements.map(s => (
+              <div key={s.id} className="card" style={{ padding: 16 }}>
+                <p style={{ fontSize: 14, color: '#111827', fontWeight: 500, lineHeight: 1.5, marginBottom: 6 }}>{s.content}</p>
+                <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>@{s.username} · {timeAgo(s.created_at)} · {fmt(s.vote_count)} votes · {fmt(s.view_count)} views</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 12, color: '#6b7280' }}>❤ Likes:</span>
+                  <input type="number" defaultValue={s.like_count || 0} onBlur={e => handleSetLikes(s, parseInt(e.target.value) || 0)}
+                    style={{ width: 70, border: '1.5px solid #e5e7eb', borderRadius: 7, padding: '4px 8px', fontSize: 13, fontWeight: 700, textAlign: 'center', outline: 'none' }} />
+                  <div style={{ marginLeft: 'auto' }}>
+                    {btn('#b91c1c', 'Delete', () => handleDeleteStatement(s))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── REPORTS ── */}
+        {tab === 'reports' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {reportLoading ? <div style={{ padding: 32 }}><Spinner /></div> :
+              reports.length === 0 ? (
+                <div className="card" style={{ padding: 48, textAlign: 'center' }}>
+                  <p style={{ fontSize: 40, marginBottom: 8 }}>✅</p>
+                  <p style={{ fontWeight: 700, color: '#111827', fontSize: 16 }}>No reports</p>
+                  <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Everything looks clean</p>
+                </div>
+              ) : reports.map(r => (
+                <div key={r.id} className="card" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Badge color="red">{r.target_type}</Badge>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>by @{r.reporter_username} · {timeAgo(r.created_at)}</span>
+                  </div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 4 }}>Reason: {r.reason}</p>
+                  {r.target_content && <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginBottom: 12 }}>"{r.target_content}"</p>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {btn('#15803d', '✓ Dismiss', () => handleDismissReport(r))}
+                    {btn('#b91c1c', '🗑 Delete content', () => handleDeleteReportContent(r))}
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
+      </div>
+
+      {manageTarget && (
+        <ManageModal
+          target={manageTarget}
+          onClose={() => setManageTarget(null)}
+          onCountsSaved={(id, fc, fwc) => setUsers(prev => prev.map(u => u.id === id ? { ...u, follower_count: fc, following_count: fwc } : u))}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Spin animation ────────────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(style);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Admin />);
+</script>
+</body>
+</html>

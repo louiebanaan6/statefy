@@ -66,6 +66,14 @@ router.put('/users/:id/ban', (req, res) => {
   res.json({ is_banned: !!newBanned, message: newBanned ? 'User banned' : 'User unbanned' });
 });
 
+router.put('/users/:id/make-admin', (req, res) => {
+  const db = getDb();
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(req.params.id);
+  res.json({ is_admin: true });
+});
+
 router.put('/users/:id/verify', (req, res) => {
   const db = getDb();
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
