@@ -11,20 +11,7 @@ const uploadsDir = process.env.UPLOADS_PATH || require('path').join(__dirname, '
 app.use('/uploads', require('express').static(uploadsDir));
 
 initDatabase();
-
-// Auto-seed on first run if no demo users exist
 const { getDb } = require('./database/db');
-(async () => {
-  try {
-    const db = getDb();
-    const { count } = db.prepare("SELECT COUNT(*) as count FROM users WHERE email LIKE '%@gen.demo'").get();
-    if (count === 0) {
-      console.log('No demo users found — running seed...');
-      const seed = require('./scripts/seed.js');
-      await seed();
-    }
-  } catch (e) { console.error('Auto-seed error:', e.message); }
-})();
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
