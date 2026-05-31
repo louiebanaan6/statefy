@@ -52,17 +52,24 @@ router.post('/register', async (req, res) => {
   if (db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND is_deleted = 0').get(email)) {
     return res.status(400).json({ error: 'Email is already registered' });
   }
-  if (db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username)) {
+  if (db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND is_deleted = 0').get(username)) {
     return res.status(400).json({ error: 'Username is already taken' });
   }
 
   const id = uuidv4();
   const isAdmin = email.toLowerCase() === 'louie.oorts@gmail.com' ? 1 : 0;
 
-  db.prepare(`
-    INSERT INTO users (id, email, username, display_name, password_hash, is_admin, is_verified, email_verified)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, email.toLowerCase(), username, display_name.trim(), bcrypt.hashSync(password, 10), isAdmin, isAdmin, isAdmin);
+  try {
+    db.prepare(`
+      INSERT INTO users (id, email, username, display_name, password_hash, is_admin, is_verified, email_verified)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, email.toLowerCase(), username, display_name.trim(), bcrypt.hashSync(password, 10), isAdmin, isAdmin, isAdmin);
+  } catch (e) {
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(400).json({ error: 'Email or username is already taken' });
+    }
+    throw e;
+  }
 
   const code = generateCode();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -196,7 +203,7 @@ router.post('/login', (req, res) => {
   }
   if (user.is_banned) return res.status(403).json({ error: 'Your account has been banned' });
   if (user.is_deleted) return res.status(403).json({ error: 'This account has been deleted' });
-  if (user.email_verified === 0) {
+  if (user.email_verified != null && user.email_verified !== 1) {
     return res.status(403).json({ error: 'Email not verified', requiresVerification: true, email: user.email });
   }
 

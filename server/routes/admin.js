@@ -90,7 +90,10 @@ router.delete('/users/:id', (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (user.id === req.user.id) return res.status(400).json({ error: 'Cannot delete your own account' });
 
-  db.prepare('UPDATE users SET is_deleted = 1 WHERE id = ?').run(req.params.id);
+  const anonEmail = `deleted_${req.params.id}@deleted`;
+  const anonUsername = `deleted_${req.params.id.slice(0, 12)}`;
+  db.prepare('UPDATE users SET is_deleted = 1, email = ?, username = ? WHERE id = ?')
+    .run(anonEmail, anonUsername, req.params.id);
   res.json({ message: 'User deleted' });
 });
 
