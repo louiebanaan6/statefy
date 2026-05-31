@@ -127,6 +127,15 @@ router.post('/', authenticate, (req, res) => {
   const textCheck = checkText(content.trim());
   if (!textCheck.ok) return res.status(400).json({ error: textCheck.reason });
 
+  // Check vote options for profanity
+  const optionsToCheck = custom_options?.length
+    ? custom_options.map(o => String(o).trim()).filter(Boolean)
+    : [option_a, option_b].filter(Boolean);
+  for (const opt of optionsToCheck) {
+    const optCheck = checkText(opt);
+    if (!optCheck.ok) return res.status(400).json({ error: `Vote option contains inappropriate language.` });
+  }
+
   let customJson = null;
   if (custom_options && Array.isArray(custom_options) && custom_options.length > 0) {
     const cleaned = custom_options.map(o => String(o).trim()).filter(Boolean);
