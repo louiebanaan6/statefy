@@ -119,7 +119,7 @@ const s = StyleSheet.create({
   fields: { gap: 18, marginBottom: 24 },
   label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
   inputRow: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#e5e7eb", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, backgroundColor: "#f9fafb" },
-  input: { flex: 1, fontSize: 15, color: "#111827", padding: 0 },
+  input: { flex: 1, fontSize: 15, color: "#111827", padding: 0, letterSpacing: 0 },
   btn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: "center", shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   btnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 });

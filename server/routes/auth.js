@@ -37,10 +37,6 @@ router.post('/register', async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Invalid email format' });
   }
-  const domainValid = await validateEmailDomain(email);
-  if (!domainValid) {
-    return res.status(400).json({ error: 'Email domain does not exist. Please use a real email address.' });
-  }
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
     return res.status(400).json({ error: 'Username must be 3-20 characters (letters, numbers, underscores only)' });
   }
@@ -53,7 +49,7 @@ router.post('/register', async (req, res) => {
 
   const db = getDb();
 
-  if (db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)').get(email)) {
+  if (db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND is_deleted = 0').get(email)) {
     return res.status(400).json({ error: 'Email is already registered' });
   }
   if (db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username)) {
@@ -206,6 +202,19 @@ router.post('/login', (req, res) => {
 
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
   res.json({ token, user: sanitize(user) });
+});
+
+router.post('/send-password-change-code', authenticate, async (req, res) => {
+  const db = getDb();
+  const email = req.user.email;
+  const code = generateCode();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  db.prepare('DELETE FROM email_codes WHERE email = ? AND type = ?').run(email, 'change_password');
+  db.prepare('INSERT INTO email_codes (id, email, code, type, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(uuidv4(), email, code, 'change_password', expiresAt);
+  console.log(`[CHANGE PASSWORD CODE] ${email}: ${code}`);
+  sendPasswordResetCode(email, code).catch(e => console.error('[EMAIL ERROR]', e.message));
+  res.json({ ok: true });
 });
 
 router.get('/me', authenticate, (req, res) => {

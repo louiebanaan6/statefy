@@ -180,7 +180,7 @@ const s = StyleSheet.create({
     paddingVertical: 13,
     backgroundColor: "#f9fafb",
   },
-  input: { flex: 1, fontSize: 15, color: "#111827", padding: 0 },
+  input: { flex: 1, fontSize: 15, color: "#111827", padding: 0, letterSpacing: 0 },
   btn: {
     backgroundColor: colors.primary,
     borderRadius: 14,

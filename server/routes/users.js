@@ -95,11 +95,16 @@ router.put('/me', authenticate, (req, res) => {
   }
 
   if (new_password) {
-    if (!current_password) return res.status(400).json({ error: 'Current password is required' });
-    if (!bcrypt.compareSync(current_password, user.password_hash)) {
-      return res.status(400).json({ error: 'Current password is incorrect' });
-    }
+    const { password_code } = req.body;
+    if (!password_code) return res.status(400).json({ error: 'Email verification code is required to change password' });
     if (new_password.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    const record = db.prepare(
+      'SELECT * FROM email_codes WHERE email = ? AND type = ? AND used = 0 ORDER BY created_at DESC LIMIT 1'
+    ).get(req.user.email, 'change_password');
+    if (!record) return res.status(400).json({ error: 'No verification code found. Send a new code first.' });
+    if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Code has expired. Send a new code.' });
+    if (record.code !== password_code.trim()) return res.status(400).json({ error: 'Incorrect code.' });
+    db.prepare('UPDATE email_codes SET used = 1 WHERE id = ?').run(record.id);
     updates.password_hash = bcrypt.hashSync(new_password, 10);
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronLeft, Shield, FileText } from "lucide-react-native";
@@ -15,13 +15,31 @@ export default function SettingsScreen() {
     display_name: user?.display_name || "",
     username: user?.username || "",
     bio: user?.bio || "",
-    current_password: "",
     new_password: "",
     confirm_password: "",
   });
   const [avatar, setAvatar] = useState<string | null>(user?.avatar_url || null);
   const [loading, setLoading] = useState(false);
+  const [pwCode, setPwCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  const startCooldown = () => {
+    setCooldown(60);
+    timerRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -30,19 +48,36 @@ export default function SettingsScreen() {
     if (!result.canceled && result.assets[0].base64) setAvatar(`data:image/jpeg;base64,${result.assets[0].base64}`);
   };
 
+  const handleSendCode = async () => {
+    if (cooldown > 0) return;
+    setSendingCode(true);
+    try {
+      await api.post("/auth/send-password-change-code");
+      setCodeSent(true);
+      startCooldown();
+      Alert.alert("Code sent", `A verification code was sent to ${user?.email}`);
+    } catch (err: any) {
+      Alert.alert("Error", err.response?.data?.error || "Failed to send code");
+    } finally { setSendingCode(false); }
+  };
+
   const handleSave = async () => {
     if (form.new_password && form.new_password !== form.confirm_password) { Alert.alert("Error", "Passwords don't match"); return; }
+    if (form.new_password && !pwCode) { Alert.alert("Error", "Enter the verification code sent to your email"); return; }
     const updates: Record<string, any> = {};
     if (form.display_name !== user?.display_name) updates.display_name = form.display_name;
     if (form.username !== user?.username) updates.username = form.username;
     if (form.bio !== (user?.bio || "")) updates.bio = form.bio;
     if (avatar !== user?.avatar_url) updates.avatar_url = avatar;
-    if (form.new_password) { updates.current_password = form.current_password; updates.new_password = form.new_password; }
+    if (form.new_password) { updates.new_password = form.new_password; updates.password_code = pwCode; }
     if (!Object.keys(updates).length) { Alert.alert("No changes", "Nothing to save"); return; }
     setLoading(true);
     try {
       const res = await api.put("/users/me", updates);
       updateUser(res.data.user);
+      setForm(p => ({ ...p, new_password: "", confirm_password: "" }));
+      setPwCode("");
+      setCodeSent(false);
       Alert.alert("Saved!", "Profile updated");
     } catch (err: any) { Alert.alert("Error", err.response?.data?.error || "Failed"); }
     finally { setLoading(false); }
@@ -58,12 +93,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      {/* Back button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 16, alignSelf: "flex-start" }}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 16, alignSelf: "flex-start" }} activeOpacity={0.7}>
         <ChevronLeft size={20} color={colors.primary} />
         <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 15 }}>Back to Profile</Text>
       </TouchableOpacity>
@@ -98,7 +128,7 @@ export default function SettingsScreen() {
             <Text style={s.label}>Username</Text>
             <View style={[s.input, { flexDirection: "row", alignItems: "center", paddingVertical: 0 }, unDays > 0 && { opacity: 0.5 }]}>
               <Text style={{ color: colors.secondary, fontSize: 15, paddingVertical: 12 }}>@</Text>
-              <TextInput value={form.username} onChangeText={v => f("username", v.replace(/[^a-zA-Z0-9_]/g, ""))} maxLength={20} autoCapitalize="none" editable={unDays === 0} style={{ flex: 1, fontSize: 15, color: colors.nearBlack, paddingVertical: 12 }} />
+              <TextInput value={form.username} onChangeText={v => f("username", v.replace(/[^a-zA-Z0-9_]/g, ""))} maxLength={20} autoCapitalize="none" editable={unDays === 0} style={{ flex: 1, fontSize: 15, color: colors.nearBlack, paddingVertical: 12, letterSpacing: 0 }} />
             </View>
             {unDays > 0 && <Text style={s.hint}>Can change in {unDays} day{unDays !== 1 ? "s" : ""}</Text>}
           </View>
@@ -110,16 +140,44 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* Password */}
+      {/* Change password */}
       <View style={[s.section, card]}>
         <Text style={s.sectionTitle}>Change password</Text>
         <View style={{ gap: 16 }}>
-          {[["current_password", "Current password"], ["new_password", "New password"], ["confirm_password", "Confirm new password"]].map(([key, label]) => (
-            <View key={key}>
-              <Text style={s.label}>{label}</Text>
-              <TextInput value={(form as any)[key]} onChangeText={v => f(key, v)} placeholder="••••••••" placeholderTextColor="#9ca3af" secureTextEntry style={s.input} />
-            </View>
-          ))}
+          <View>
+            <Text style={s.label}>New password</Text>
+            <TextInput value={form.new_password} onChangeText={v => f("new_password", v)} placeholder="Min 8 characters" placeholderTextColor="#9ca3af" secureTextEntry style={s.input} />
+          </View>
+          <View>
+            <Text style={s.label}>Confirm new password</Text>
+            <TextInput value={form.confirm_password} onChangeText={v => f("confirm_password", v)} placeholder="Repeat new password" placeholderTextColor="#9ca3af" secureTextEntry style={s.input} />
+          </View>
+
+          {form.new_password.length > 0 && (
+            <>
+              <View>
+                <Text style={s.label}>Verification code</Text>
+                <TextInput
+                  value={pwCode}
+                  onChangeText={v => setPwCode(v.replace(/[^0-9]/g, "").slice(0, 6))}
+                  placeholder="6-digit code from your email"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={s.input}
+                />
+              </View>
+              <TouchableOpacity
+                onPress={handleSendCode}
+                disabled={sendingCode || cooldown > 0}
+                style={{ alignSelf: "flex-start" }}
+              >
+                <Text style={{ color: cooldown > 0 ? "#9ca3af" : colors.primary, fontWeight: "600", fontSize: 13 }}>
+                  {sendingCode ? "Sending..." : cooldown > 0 ? `Resend in ${cooldown}s` : codeSent ? "Resend code" : `Send code to ${user?.email}`}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
@@ -128,23 +186,14 @@ export default function SettingsScreen() {
         {loading ? <ActivityIndicator color={colors.white} /> : <Text style={{ color: colors.white, fontWeight: "700", fontSize: 16 }}>Save Changes</Text>}
       </TouchableOpacity>
 
-      {/* Admin panel button — only for admins */}
       {!!user?.is_admin && (
-        <TouchableOpacity
-          onPress={() => router.push("/admin" as any)}
-          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0f4ff", borderRadius: 999, paddingVertical: 14, marginBottom: 12, borderWidth: 1.5, borderColor: colors.primary }}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity onPress={() => router.push("/admin" as any)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0f4ff", borderRadius: 999, paddingVertical: 14, marginBottom: 12, borderWidth: 1.5, borderColor: colors.primary }} activeOpacity={0.8}>
           <Shield size={18} color={colors.primary} />
           <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>Admin Panel</Text>
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        onPress={() => router.push("/privacy-policy" as any)}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 999, paddingVertical: 14, marginBottom: 12 }}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity onPress={() => router.push("/privacy-policy" as any)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 999, paddingVertical: 14, marginBottom: 12 }} activeOpacity={0.8}>
         <FileText size={16} color={colors.secondary} />
         <Text style={{ color: colors.secondary, fontWeight: "600", fontSize: 15 }}>Privacy Policy</Text>
       </TouchableOpacity>
@@ -160,6 +209,6 @@ const s = StyleSheet.create({
   section: { padding: 20, marginBottom: 16 },
   sectionTitle: { fontWeight: "700", fontSize: 15, color: colors.nearBlack, marginBottom: 16 },
   label: { fontSize: 14, fontWeight: "600", color: colors.nearBlack, marginBottom: 6 },
-  input: { backgroundColor: colors.white, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.nearBlack },
+  input: { backgroundColor: colors.white, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.nearBlack, letterSpacing: 0 },
   hint: { fontSize: 12, color: colors.secondary, marginTop: 4 },
 });
