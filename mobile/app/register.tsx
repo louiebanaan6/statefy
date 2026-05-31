@@ -22,8 +22,8 @@ export default function RegisterScreen() {
     if (!email || !display_name || !username || !password) { Alert.alert("Error", "All fields are required"); return; }
     setLoading(true);
     try {
-      await register(email.trim().toLowerCase(), username.trim(), display_name.trim(), password);
-      router.replace("/");
+      const result = await register(email.trim().toLowerCase(), username.trim(), display_name.trim(), password);
+      router.replace({ pathname: "/verify-email", params: { email: result.email } } as any);
     } catch (err: any) {
       Alert.alert("Sign up failed", err.response?.data?.error || "Please try again");
     } finally { setLoading(false); }
@@ -89,6 +89,18 @@ export default function RegisterScreen() {
             <TouchableOpacity onPress={() => router.replace("/login")}>
               <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>Sign in</Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={{ alignItems: "center", marginTop: 24 }}>
+            <Text style={{ color: "#9ca3af", fontSize: 12, textAlign: "center" }}>
+              By creating an account you agree to our{" "}
+              <Text
+                style={{ color: colors.primary, fontWeight: "600" }}
+                onPress={() => router.push("/privacy-policy" as any)}
+              >
+                Privacy Policy
+              </Text>
+            </Text>
           </View>
         </View>
       </ScrollView>

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { initDatabase } = require('./database/db');
@@ -22,6 +23,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/spotify', require('./routes/spotify'));
+app.use('/api/ads', require('./routes/ads'));
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 

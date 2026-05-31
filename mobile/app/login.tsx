@@ -21,8 +21,12 @@ export default function LoginScreen() {
     if (!email.trim() || !password) { Alert.alert("Error", "Email and password are required"); return; }
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
-      router.replace("/");
+      const result = await login(email.trim().toLowerCase(), password);
+      if ("requiresVerification" in result && result.requiresVerification) {
+        router.replace({ pathname: "/verify-email", params: { email: result.email } } as any);
+      } else {
+        router.replace("/");
+      }
     } catch (err: any) {
       Alert.alert("Login failed", err.response?.data?.error || "Check your email and password");
     } finally { setLoading(false); }
@@ -91,6 +95,10 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          <TouchableOpacity style={{ alignSelf: "flex-end", marginTop: -8, marginBottom: 16 }} onPress={() => router.push("/forgot-password" as any)}>
+            <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>Forgot password?</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
@@ -105,6 +113,18 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => router.replace("/register")}>
               <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>Create one</Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={{ alignItems: "center", marginTop: 24 }}>
+            <Text style={{ color: "#9ca3af", fontSize: 12, textAlign: "center" }}>
+              By signing in you agree to our{" "}
+              <Text
+                style={{ color: colors.primary, fontWeight: "600" }}
+                onPress={() => router.push("/privacy-policy" as any)}
+              >
+                Privacy Policy
+              </Text>
+            </Text>
           </View>
         </View>
       </ScrollView>

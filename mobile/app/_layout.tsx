@@ -18,10 +18,11 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (loading || minWait) return;
-    const inAuthGroup = segments[0] === "login" || segments[0] === "register";
-    if (!user && !inAuthGroup) {
+    const publicRoutes = ["login", "register", "verify-email", "forgot-password", "privacy-policy"];
+    const inPublicRoute = publicRoutes.includes(segments[0] as string);
+    if (!user && !inPublicRoute) {
       router.replace("/login");
-    } else if (user && inAuthGroup) {
+    } else if (user && (segments[0] === "login" || segments[0] === "register")) {
       router.replace("/");
     }
   }, [user, loading, minWait, segments]);
@@ -45,6 +46,9 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="user/[username]" options={{ title: "Profile" }} />
     </Stack>
   );

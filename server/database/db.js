@@ -124,8 +124,21 @@ function initDatabase() {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_codes (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      type TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   // Migrations for existing databases
   try { db.exec('ALTER TABLE statements ADD COLUMN photo_url TEXT'); } catch {}
+  try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1'); } catch {}
   try { db.exec('ALTER TABLE statements ADD COLUMN audio_url TEXT'); } catch {}
   try { db.exec('ALTER TABLE statements ADD COLUMN audio_title TEXT'); } catch {}
   try { db.exec(`CREATE TABLE IF NOT EXISTS seen_statements (
@@ -133,6 +146,16 @@ function initDatabase() {
     statement_id TEXT NOT NULL,
     seen_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, statement_id)
+  )`); } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS ads (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    cta_text TEXT DEFAULT 'Learn More',
+    cta_url TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
   )`); } catch {}
   try { db.exec(`CREATE TABLE IF NOT EXISTS reports (
     id TEXT PRIMARY KEY,

@@ -22,10 +22,11 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
-  register: (email: string, username: string, display_name: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<User | { requiresVerification: true; email: string }>;
+  register: (email: string, username: string, display_name: string, password: string) => Promise<{ requiresVerification: true; email: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  setCurrentUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -49,17 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await api.post("/auth/login", { email, password });
-    await AsyncStorage.setItem("statefy_token", res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      await AsyncStorage.setItem("statefy_token", res.data.token);
+      setUser(res.data.user);
+      return res.data.user;
+    } catch (err: any) {
+      if (err.response?.data?.requiresVerification) {
+        return { requiresVerification: true as const, email: err.response.data.email };
+      }
+      throw err;
+    }
   };
 
   const register = async (email: string, username: string, display_name: string, password: string) => {
     const res = await api.post("/auth/register", { email, username, display_name, password });
-    await AsyncStorage.setItem("statefy_token", res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
+    return { requiresVerification: true as const, email: res.data.email };
   };
 
   const logout = async () => {
@@ -68,9 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (updates: Partial<User>) => setUser((prev) => prev ? { ...prev, ...updates } : null);
+  const setCurrentUser = (u: User) => setUser(u);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, setCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );

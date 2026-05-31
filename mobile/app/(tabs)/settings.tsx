@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Shield } from "lucide-react-native";
+import { ChevronLeft, Shield, FileText } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -139,6 +139,15 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>Admin Panel</Text>
         </TouchableOpacity>
       )}
+
+      <TouchableOpacity
+        onPress={() => router.push("/privacy-policy" as any)}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 999, paddingVertical: 14, marginBottom: 12 }}
+        activeOpacity={0.8}
+      >
+        <FileText size={16} color={colors.secondary} />
+        <Text style={{ color: colors.secondary, fontWeight: "600", fontSize: 15 }}>Privacy Policy</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={handleLogout} style={{ borderWidth: 1, borderColor: "#fecaca", borderRadius: 999, paddingVertical: 14, alignItems: "center" }}>
         <Text style={{ color: "#b91c1c", fontWeight: "600", fontSize: 15 }}>Log out</Text>
